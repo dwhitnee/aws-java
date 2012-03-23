@@ -5,13 +5,35 @@
   <property name="build" location="build"/>
   <property name="dist"  location="dist"/>
 
+  <!-- BS to shut ant warning up -->
+  <presetdef name="javac">
+    <javac includeantruntime="false" />
+  </presetdef>
+
   <target name="init">
     <tstamp/>
     <mkdir dir="${build}"/>
   </target>
 
+  <path id="build.classpath">
+    <fileset dir="lib">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
+
   <target name="compile" depends="init" description="compile" >
-    <javac srcdir="${src}" destdir="${build}"/>
+
+    <!--
+    <classpath>
+      <fileset dir="lib">
+        <include name="**/*.jar"/>
+      </fileset>
+    </classpath>
+    -->
+
+    <javac srcdir="${src}" destdir="${build}"
+           classpathref="build.classpath"/>
+
   </target>
 
   <target name="dist" depends="compile" description="generate the jar" >
