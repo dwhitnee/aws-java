@@ -26,9 +26,9 @@
   </path>
 
   <path id="run.classpath">
-    <fileset dir="lib" includes="**/*.jar"/>
     <pathelement location="build"/>
 
+    <fileset dir="lib" includes="**/*.jar"/>
     <fileset dir="${sdkdir}/third-party" includes="**/*.jar"/>
     <fileset dir="${sdkdir}/lib" includes="**/*.jar"/>
   </path>
