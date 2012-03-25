@@ -201,22 +201,9 @@ public class AWSReflector {
         return outService;
     }
 
-    //----------------------------------------
-    // For Jsonification
-    //----------------------------------------
-    class ErrorData {
-        String error;
-        int code;
-        String message;
-
-        public ErrorData( String e, int c, String m) {
-            error = e;
-            code = c;
-            message = m;
-        }
-    };
-
+    //----------------------------------------------------------------------
     // convert "/ec2/describeInstances" to real call
+    //----------------------------------------------------------------------
     public String call( String path, Map<String,String> args ) {
 
         String[] request = path.split("/");
@@ -251,7 +238,7 @@ public class AWSReflector {
             client = getClient( service );
         }
         catch (Exception ex) {
-            return errorJSON("Bad Request", 400,
+            return errorJSON("BadRequest", 400,
                              "Unknown AWS Service: " + service);
         }
         try {
@@ -308,10 +295,38 @@ public class AWSReflector {
         }
     }
 
+
+
+
+    //----------------------------------------
+    // For Jsonification
+    //----------------------------------------
+    class ErrorData {
+        String code;  // brief error
+        int status;   // HTTP status
+        String message;  // details
+
+        public ErrorData( String c, int s, String m) {
+            code = c;
+            status = s;
+            message = m;
+        }
+    };
+
+    class Errors {
+        ErrorData[] error;
+        public Errors( ErrorData e) { error = new ErrorData[] { e }; }
+    }
+
     //----------------------------------------------------------------------
+    // error: [{
+    //   code: "Bad Request"
+    //   status: 403
+    //   message: "lorem ipsum blah"
+    // }]
     String errorJSON( String error, int statusCode, String message) {
         return _gson.toJson(
-            new ErrorData( error, statusCode, message ));
+            new Errors( new ErrorData( error, statusCode, message )));
     }
 
 
