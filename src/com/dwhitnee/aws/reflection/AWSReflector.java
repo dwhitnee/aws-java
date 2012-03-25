@@ -63,15 +63,16 @@ import com.amazonaws.services.sqs.AmazonSQSClient;
 public class AWSReflector {
 
     public static void main( String[] argv ) throws Exception {
-        AWSReflector foo = new AWSReflector();
+        AWSReflector aws = new AWSReflector();
 
         System.out.println("Hello World");
 
         Map<String,String> args = new HashMap<String,String>();
-        args.put("tableName", "Customers");
 
-        System.out.println("Output: " +
-                           foo.callDynamic("dynamodb", "describeTable", args ));
+        System.out.println( aws.call("/ec2/describeAvailabilityZones", args ));
+
+        args.put("tableName", "Customers");
+        System.out.println( aws.call("/dynamodb/describeTable", args ));
     }
 
     //----------------------------------------------------------------------
@@ -215,58 +216,67 @@ public class AWSReflector {
         }
     };
 
+    // convert "/ec2/describeInstances" to real call
+    public String call( String path, Map<String,String> args ) {
+
+        String[] request = path.split("/");
+        // assert len > 2  FIXME
+        return call( request[1], request[2], args );
+    }
+
     //----------------------------------------
     /**
      * Takes ("ec2", "describeInstances") and via reflection turns that into
      * AmazonEC2Client.desscribeInstances( DescribeInstancesRequest )
      *
+     * @param inArgs expects parameters in the form the SDK wants.
      * @return Response object as json.
      */
     //----------------------------------------
-    String callDynamic( String service,
-                        String methodName,
-                        Map<String,String> inArgs)
-        throws Exception
+    String call( String service,
+                 String methodName,
+                 Map<String,String> args)
     {
         String baseClassName = "com.amazonaws.services." + service + ".model.";
         String requestName = StringUtils.capitalize( methodName ) + "Request";
         String requestClassName = baseClassName + requestName;
 
-        //  {"tableName":"Customers"}";
-        String argsJson = _gson.toJson( inArgs );
+        // args are Ex: {"tableName":"Customers"}";
 
         AmazonWebServiceClient client = null;
         Object request = null;
-        Class requestClass = null;
+        Class<?> requestClass = null;
 
-        // if service name or function is bad, return a 400
         try {
             client = getClient( service );
         }
         catch (Exception ex) {
-            ErrorData error = new ErrorData(
-                "Bad Request", 400,
-                "Unknown AWS Service: " + service);
-            return _gson.toJson( error );
+            return errorJSON("Bad Request", 400,
+                             "Unknown AWS Service: " + service);
         }
-
         try {
             requestClass = Class.forName( requestClassName );
         }
         catch (Exception ex) {
-            ErrorData error = new ErrorData(
-                "Bad Request", 400,
-                "Unknown "+ service +" action: "+ methodName +"");
-            return _gson.toJson( error );
+            return errorJSON("Bad Request", 400,
+                             "Unknown "+ service +" action: "+ methodName +"");
         }
 
         try {
-            request = _gson.fromJson( argsJson, requestClass );
+            // convert request args map to request object
 
-            // get method for, e.g., describeTable
+            if (args == null)
+                request = _gson.fromJson( _gson.toJson( args ), requestClass );
+            else
+                request = _gson.fromJson( _gson.toJson( args ), requestClass );
+
+            if (request == null)
+                return errorJSON("Bad Request", 400, "Invalid arguments to " +
+                                 service+"."+methodName+": " + args);
+
+            // e.g., describeIsntances()
             Method method = client.getClass().
-                getMethod( methodName,
-                           new Class[] { requestClass } );
+                getMethod( methodName, new Class[] { requestClass } );
 
             // invoke method, this could fail in many ways, try to handle them
             try {
@@ -275,47 +285,36 @@ public class AWSReflector {
             }
             catch (InvocationTargetException ex) {
                 Throwable cause = ex.getCause();
-                // bad connection
-                if (cause instanceof AmazonClientException) {
-                    AmazonClientException ace = (AmazonClientException) cause;
 
-                    return _gson.toJson(
-                        new ErrorData("BadNetwork", 408, ace.getMessage()));
+                if (cause instanceof AmazonServiceException) {
+                    AmazonServiceException ase = (AmazonServiceException) cause;
+                    return errorJSON( ase.getErrorCode(), ase.getStatusCode(),
+                                      service+"."+methodName+": " +
+                                      ase.getMessage() );
+
+                } else if (cause instanceof AmazonClientException) {
+                    ex.printStackTrace();
+                    // no network...?
+                    return errorJSON("BadNetwork", 408, cause.getMessage());
+                } else {
+                    // permissions? service? who knows?
+                    return errorJSON("oops", 1, ex.getMessage());
                 }
-
-                return _gson.toJson(
-                    new ErrorData("oops", 1, ex.getMessage()));
             }
-        }
-        catch (AmazonServiceException ex) {
-            ErrorData error = new ErrorData( ex.getErrorCode(),
-                                             ex.getStatusCode(),
-                                             ex.toString() );
-            return _gson.toJson( error );
         }
         catch ( Exception ex) {
             ex.printStackTrace();
-            ErrorData error = new ErrorData("oops", 500, "");
-            return "{ 'error':'oops: " + ex + "'}";
+            return errorJSON("oops", 500, "");
         }
     }
 
-
-
-
-
-    void callDynamo() {
-        AmazonDynamoDBClient dynamoDB = new AmazonDynamoDBClient( _credentials );
-
-        DescribeTableRequest req =
-            new DescribeTableRequest().withTableName("Customers");
-
-        DescribeTableResult resp = dynamoDB.describeTable( req );
-
-        TableDescription table = resp.getTable();
-
-        System.out.println("Request: " + _gson.toJson( req ) );
-        System.out.println("Response: " + _gson.toJson( resp ) );
+    //----------------------------------------------------------------------
+    String errorJSON( String error, int statusCode, String message) {
+        return _gson.toJson(
+            new ErrorData( error, statusCode, message ));
     }
 
+
 }
+
+
