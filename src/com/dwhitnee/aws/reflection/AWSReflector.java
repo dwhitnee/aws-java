@@ -15,15 +15,8 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.PropertiesCredentials;
 
-import com.amazonaws.services.dynamodb.model.AttributeValue;
-import com.amazonaws.services.dynamodb.model.DescribeTableRequest;
-import com.amazonaws.services.dynamodb.model.DescribeTableResult;
 
-import com.amazonaws.services.dynamodb.model.TableDescription;
-import com.amazonaws.services.dynamodb.model.TableStatus;
-
-
-// All clients
+// ----- All clients ------
 import com.amazonaws.AmazonWebServiceClient;
 
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClient;
@@ -47,7 +40,7 @@ import com.amazonaws.services.simpleemail.AmazonSimpleEmailServiceClient;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClient;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sqs.AmazonSQSClient;
-
+// ----- All clients ------
 
 
 /**
@@ -60,6 +53,8 @@ import com.amazonaws.services.sqs.AmazonSQSClient;
  *  IAM no permissions
  */
 
+// really aws.sdk.Invoker
+
 public class AWSReflector {
 
     public static void main( String[] argv ) throws Exception {
@@ -69,10 +64,14 @@ public class AWSReflector {
 
         Map<String,String> args = new HashMap<String,String>();
 
-        System.out.println( aws.call("/ec2/describeAvailabilityZones", args ));
+        System.out.println( aws.call("/ec2/describeAvailabilityZones", null ));
 
         args.put("tableName", "Customers");
         System.out.println( aws.call("/dynamodb/describeTable", args ));
+
+
+//         args.put("groupName", "Minecraft");
+//         System.out.println( aws.call("/ec2/describeSecurityGroup", args ));
     }
 
     //----------------------------------------------------------------------
@@ -211,6 +210,30 @@ public class AWSReflector {
         return call( request[1], request[2], args );
     }
 
+    //----------------------------------------------------------------------
+    // convert "/sdk/ec2/describeInstances" to real call
+    //----------------------------------------------------------------------
+/*
+    public String call( HttpRequestServlet servlet ) {
+
+        String[] request = servlet.getServletPath().split("/");
+        String jsonArgs = servlet.getParamter("args");
+
+        // assert request.len > 3
+        return call( request[2], request[3], jsonArgs );
+    }
+*/
+    //----------------------------------------------------------------------
+    String call( String service,
+                 String methodName,
+                 Map<String,String> args)
+    {
+        if (args == null)
+            return call( service, methodName, "{}"); // to avoid actual "null"
+        else
+            return call( service, methodName, _gson.toJson( args ));
+    }
+
     //----------------------------------------
     /**
      * Takes ("ec2", "describeInstances") and via reflection turns that into
@@ -222,7 +245,7 @@ public class AWSReflector {
     //----------------------------------------
     String call( String service,
                  String methodName,
-                 Map<String,String> args)
+                 String jsonArgs)
     {
         String baseClassName = "com.amazonaws.services." + service + ".model.";
         String requestName = StringUtils.capitalize( methodName ) + "Request";
@@ -252,14 +275,14 @@ public class AWSReflector {
         try {
             // convert request args map to request object
 
-            if (args == null)
-                request = _gson.fromJson( _gson.toJson( args ), requestClass );
+            if (jsonArgs == null)
+                request = requestClass.newInstance();
             else
-                request = _gson.fromJson( _gson.toJson( args ), requestClass );
+                request = _gson.fromJson( jsonArgs, requestClass );
 
             if (request == null)
                 return errorJSON("Bad Request", 400, "Invalid arguments to " +
-                                 service+"."+methodName+": " + args);
+                                 service+"."+methodName+": " + jsonArgs);
 
             // e.g., describeIsntances()
             Method method = client.getClass().

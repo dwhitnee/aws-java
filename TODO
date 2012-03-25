@@ -1,0 +1,51 @@
+* Unit tests for AWSReflector
+
+* Better name for this object?
+
+com.dwhitnee.aws.reflection.AWSReflector
+com.dwhitnee.aws.util.DynamicInvoker;
+com.dwhitnee.aws.util.KitchenSink;
+com.dwhitnee.aws.sdk.DynamicInvoker;
+com.dwhitnee.aws.sdk.Invoker;
+
+* region?
+
+* How to map <string,string[]> to <string,string> for Gson?
+** Try AuthorizeSecurityGroupIngress (list of ipPerms)
+
+* Do we need Coral?  Is Servlet all we need?
+** csrf?
+** http call formatting?
+
+* Input is json arg only? Not http request arg?
+** /ec2/addIngress?args=<json>
+
+
+{
+    "groupName": "Scalarium-MQ-Server",
+    "groupId": "sg-2b9c8442",
+    "description": "Scalarium messaging server - do not change or delete",
+    "ipPermissions": [
+        {
+            "ipProtocol": "tcp",
+            "fromPort": 22,
+            "toPort": 22,
+            "ipRanges": [ "0.0.0.0/0" ]
+        },
+        {
+            "ipProtocol": "tcp",
+            "fromPort": 5671,
+            "toPort": 5673,
+            "ipRanges": [
+                "10.0.0.0/8",
+                "103.4.8.0/21",
+                "107.20.0.0/15",
+                "107.22.0.0/16",
+                "122.248.192.0/18",
+                "46.137.128.0/18",
+                "75.101.128.0/17",
+                "79.125.0.0/17"
+            ]
+        }
+    ]
+}
