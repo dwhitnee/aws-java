@@ -58,153 +58,55 @@ import com.amazonaws.services.sqs.AmazonSQSClient;
 public class AWSReflector {
 
     public static void main( String[] argv ) throws Exception {
-        AWSReflector aws = new AWSReflector();
+
+        AWSCredentials creds = new PropertiesCredentials(
+            ClassLoader.getSystemClassLoader().
+            getResourceAsStream("AwsCredentials.properties"));
+
+        AWSReflector aws = new AWSReflector( creds );
 
         System.out.println("Hello World");
 
         Map<String,String> args = new HashMap<String,String>();
 
-        System.out.println( aws.call("/ec2/describeAvailabilityZones", null ));
-
+        System.out.println( aws.call("/POOP/describeTable", args ));
+        System.out.println( aws.call("/dynamodb/POOPdescribeTable", args ));
+        System.out.println( aws.call("/dynamodb/describeTable", args ));
+        args.put("tableName", "ZZCustomers");
+        System.out.println( aws.call("/dynamodb/describeTable", args ));
         args.put("tableName", "Customers");
         System.out.println( aws.call("/dynamodb/describeTable", args ));
 
+        System.out.println( aws.call("/ec2/describeAvailabilityZones", null ));
 
-//         args.put("groupName", "Minecraft");
-//         System.out.println( aws.call("/ec2/describeSecurityGroup", args ));
+
+        Map<String,String[]> sgs = new HashMap<String,String[]>();
+        sgs.put("groupNames", new String[] { "Minecraft" });
+        System.out.println( aws.call("ec2", "describeSecurityGroups",
+                                     new Gson().toJson( sgs )));
     }
 
     //----------------------------------------------------------------------
-    Map<String,AmazonWebServiceClient> _services;
+
     AWSCredentials _credentials;
+    Map<String,AmazonWebServiceClient> _services;
+
     Gson _gson;
 
     //----------------------------------------------------------------------
-    public AWSReflector() throws Exception
+    public AWSReflector( AWSCredentials inCredentials) throws Exception
     {
-        init();
-        _gson = new Gson();
-    }
-
-    //----------------------------------------------------------------------
-    void init() throws Exception
-    {
-        _credentials = new PropertiesCredentials(
-            ClassLoader.getSystemClassLoader().
-            getResourceAsStream("AwsCredentials.properties"));
-
+        _credentials = inCredentials;
         _services = new HashMap<String,AmazonWebServiceClient>();
-    }
-
-    //----------------------------------------------------------------------
-    protected enum AWSService {
-        autoscaling, cloudformation, cloudfront, cloudwatch, dynamodb, ec2,
-        elasticache, elasticbeanstalk, elasticloadbalancing, elasticmapreduce,
-        identitymanagement, importexport, rds, route53, s3, securitytoken,
-        simpledb, simpleemail, simpleworkflow, sns, sqs
-    };
-
-    //----------------------------------------------------------------------
-    // Turns "ec2" into AmazonEC2Client.  Will cache, but cache (or this whole
-    // object) should be thrown out if credentials change.
-    //----------------------------------------------------------------------
-    protected AmazonWebServiceClient getClient( String serviceName )
-    {
-        AmazonWebServiceClient outService = _services.get( serviceName );
-
-        if (outService == null) {
-
-            AWSService service = null;
-            try {
-                service = AWSService.valueOf( serviceName );
-            }
-            catch (Exception ex) {
-                throw new RuntimeException(
-                    "Service "+ serviceName +" not supported");
-            }
-
-            switch (service)
-            {
-                case autoscaling:
-                    outService = new AmazonAutoScalingClient( _credentials );
-                    break;
-                case cloudformation:
-                    outService = new AmazonCloudFormationClient( _credentials );
-                    break;
-                case cloudfront:
-                    outService = new AmazonCloudFrontClient( _credentials );
-                    break;
-                case cloudwatch:
-                    outService = new AmazonCloudWatchClient( _credentials );
-                    break;
-                case dynamodb:
-                    outService = new AmazonDynamoDBClient( _credentials );
-                    break;
-                case ec2:
-                    outService = new AmazonEC2Client( _credentials );
-                    break;
-                case elasticache:
-                    outService = new AmazonElastiCacheClient( _credentials );
-                    break;
-                case elasticbeanstalk:
-                    outService = new AWSElasticBeanstalkClient( _credentials );
-                    break;
-                case elasticloadbalancing:
-                    outService = new AmazonElasticLoadBalancingClient( _credentials );
-                    break;
-                case elasticmapreduce:
-                    outService = new AmazonElasticMapReduceClient( _credentials );
-                    break;
-                case identitymanagement:
-                    outService = new AmazonIdentityManagementClient( _credentials );
-                    break;
-                case importexport:
-                    outService = new AmazonImportExportClient( _credentials );
-                    break;
-                case rds:
-                    outService = new AmazonRDSClient( _credentials );
-                    break;
-                case route53:
-                    outService = new AmazonRoute53Client( _credentials );
-                    break;
-                case s3:
-                    outService = new AmazonS3Client( _credentials );
-                    break;
-                case simpledb:
-                    outService = new AmazonSimpleDBClient( _credentials );
-                    break;
-                case simpleemail:
-                    outService = new AmazonSimpleEmailServiceClient( _credentials );
-                    break;
-                case simpleworkflow:
-                    outService = new AmazonSimpleWorkflowClient( _credentials );
-                    break;
-                case sns:
-                    outService = new AmazonSNSClient( _credentials );
-                    break;
-                case sqs:
-                    outService = new AmazonSQSClient( _credentials );
-                    break;
-                case securitytoken:
-                    outService = new AWSSecurityTokenServiceClient( _credentials );
-                    break;
-
-                default:
-                    // should never get here, enum should match above switch.
-                    throw new RuntimeException(
-                        "Service " + serviceName + " not supported");
-            }
-            _services.put( serviceName, outService );
-        }
-
-        return outService;
+        _gson = new Gson();
     }
 
     //----------------------------------------------------------------------
     // convert "/ec2/describeInstances" to real call
     //----------------------------------------------------------------------
-    public String call( String path, Map<String,String> args ) {
-
+    public String call( String path,
+                        Map<String,String> args )
+    {
         String[] request = path.split("/");
         // assert len > 2  FIXME
         return call( request[1], request[2], args );
@@ -320,10 +222,10 @@ public class AWSReflector {
 
 
 
+    //----------------------------------------------------------------------
+    // Error Handling
+    //----------------------------------------------------------------------
 
-    //----------------------------------------
-    // For Jsonification
-    //----------------------------------------
     class ErrorData {
         String code;  // brief error
         int status;   // HTTP status
@@ -347,11 +249,121 @@ public class AWSReflector {
     //   status: 403
     //   message: "lorem ipsum blah"
     // }]
+
     String errorJSON( String error, int statusCode, String message) {
         return _gson.toJson(
             new Errors( new ErrorData( error, statusCode, message )));
     }
 
+
+
+
+    //----------------------------------------------------------------------
+    // Declaration of all services
+    //----------------------------------------------------------------------
+
+    protected enum AWSService {
+        autoscaling, cloudformation, cloudfront, cloudwatch, dynamodb, ec2,
+        elasticache, elasticbeanstalk, elasticloadbalancing, elasticmapreduce,
+        identitymanagement, importexport, rds, route53, s3, securitytoken,
+        simpledb, simpleemail, simpleworkflow, sns, sqs
+    };
+
+    //----------------------------------------------------------------------
+    // Turns "ec2" into AmazonEC2Client.  Will cache, but cache (or this whole
+    // object) should be thrown out if credentials change.
+    //----------------------------------------------------------------------
+    protected AmazonWebServiceClient getClient( String serviceName )
+    {
+        AmazonWebServiceClient outService = _services.get( serviceName );
+
+        if (outService == null) {
+
+            AWSService service = null;
+            try {
+                service = AWSService.valueOf( serviceName );
+            }
+            catch (Exception ex) {
+                throw new RuntimeException(
+                    "Service "+ serviceName +" not supported");
+            }
+
+            switch (service)
+            {
+                case autoscaling:
+                    outService = new AmazonAutoScalingClient( _credentials );
+                    break;
+                case cloudformation:
+                    outService = new AmazonCloudFormationClient( _credentials );
+                    break;
+                case cloudfront:
+                    outService = new AmazonCloudFrontClient( _credentials );
+                    break;
+                case cloudwatch:
+                    outService = new AmazonCloudWatchClient( _credentials );
+                    break;
+                case dynamodb:
+                    outService = new AmazonDynamoDBClient( _credentials );
+                    break;
+                case ec2:
+                    outService = new AmazonEC2Client( _credentials );
+                    break;
+                case elasticache:
+                    outService = new AmazonElastiCacheClient( _credentials );
+                    break;
+                case elasticbeanstalk:
+                    outService = new AWSElasticBeanstalkClient( _credentials );
+                    break;
+                case elasticloadbalancing:
+                    outService = new AmazonElasticLoadBalancingClient( _credentials );
+                    break;
+                case elasticmapreduce:
+                    outService = new AmazonElasticMapReduceClient( _credentials );
+                    break;
+                case identitymanagement:
+                    outService = new AmazonIdentityManagementClient( _credentials );
+                    break;
+                case importexport:
+                    outService = new AmazonImportExportClient( _credentials );
+                    break;
+                case rds:
+                    outService = new AmazonRDSClient( _credentials );
+                    break;
+                case route53:
+                    outService = new AmazonRoute53Client( _credentials );
+                    break;
+                case s3:
+                    outService = new AmazonS3Client( _credentials );
+                    break;
+                case simpledb:
+                    outService = new AmazonSimpleDBClient( _credentials );
+                    break;
+                case simpleemail:
+                    outService = new AmazonSimpleEmailServiceClient( _credentials );
+                    break;
+                case simpleworkflow:
+                    outService = new AmazonSimpleWorkflowClient( _credentials );
+                    break;
+                case sns:
+                    outService = new AmazonSNSClient( _credentials );
+                    break;
+                case sqs:
+                    outService = new AmazonSQSClient( _credentials );
+                    break;
+                case securitytoken:
+                    outService = new AWSSecurityTokenServiceClient( _credentials );
+                    break;
+
+                default:
+                    // should never get here, enum should match above switch.
+                    throw new RuntimeException(
+                        "Service " + serviceName + " not supported");
+            }
+            _services.put( serviceName, outService );
+        }
+
+        return outService;
+    }
 
 }
 
