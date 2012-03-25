@@ -35,7 +35,9 @@
 
   <!-- ======================================== -->
   <target name="compile" depends="init" description="compile" >
-    <javac srcdir="${src}" destdir="${build}"/>
+    <javac srcdir="${src}" destdir="${build}">
+      <compilerarg value="-Xlint"/>
+    </javac>
     <copy file="AwsCredentials.properties" todir="${build}"/>
   </target>
 
