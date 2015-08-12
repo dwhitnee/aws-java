@@ -1,0 +1,4 @@
+AwsCredentials.*
+*~
+lib/*
+build/*
